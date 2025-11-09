@@ -1,0 +1,66 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  SALES
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(SALES)
+  leads     Lead[]   @relation("UserLeads")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Lead {
+  id          Int          @id @default(autoincrement())
+  title       String
+  company     String?
+  email       String?
+  phone       String?
+  source      String?
+  status      String       @default("new")
+  ownerId     Int?
+  owner       User?        @relation("UserLeads", fields: [ownerId], references: [id])
+  activities  Activity[]
+  histories   LeadHistory[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Activity {
+  id        Int      @id @default(autoincrement())
+  lead      Lead     @relation(fields: [leadId], references: [id])
+  leadId    Int
+  type      String   // note, could be enum: NOTE, CALL, MEETING
+  title     String?
+  note      String?
+  performedBy Int?   // optional user id
+  performedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeadHistory {
+  id        Int      @id @default(autoincrement())
+  lead      Lead     @relation(fields: [leadId], references: [id])
+  leadId    Int
+  changedBy Int?     // user id
+  field     String
+  fromValue String?
+  toValue   String?
+  createdAt DateTime @default(now())
+}

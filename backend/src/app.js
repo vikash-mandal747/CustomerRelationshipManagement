@@ -1,5 +1,6 @@
 // src/app.js
 const express = require('express');
+require('dotenv').config();
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const protectedRoutes = require('./routes/protected');
@@ -18,4 +19,7 @@ app.use('/api/activities', activityRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-module.exports = app;
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Backend running on http://localhost:${PORT}`);
+});

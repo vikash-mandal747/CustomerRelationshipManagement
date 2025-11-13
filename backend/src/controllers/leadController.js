@@ -1,7 +1,7 @@
 const prisma = require("../utils/prisma");
 
 // 🟢 Create a new lead
-exports.createLead = async (req, res) => {
+const createLead = async (req, res) => {
   try {
     const { title, company, email, phone, source, status } = req.body;
     const userId = req.user.id;
@@ -26,7 +26,7 @@ exports.createLead = async (req, res) => {
 };
 
 // 🟣 Get all leads (Admin/Manager) or user’s own leads (Sales)
-exports.getLeads = async (req, res) => {
+const getLeads = async (req, res) => {
   try {
     const user = req.user;
     let leads;
@@ -59,11 +59,11 @@ exports.getLeads = async (req, res) => {
   }
 };
 
-// 🟡 Update a lead
-exports.updateLead = async (req, res) => {
+// 🟡 Update a lead (with Lead History tracking)
+const updateLead = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, company, email, phone, source, status } = req.body;
+    const updates = req.body;
     const user = req.user;
 
     const existingLead = await prisma.lead.findUnique({ where: { id: Number(id) } });
@@ -74,20 +74,49 @@ exports.updateLead = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to update this lead' });
     }
 
-    const updated = await prisma.lead.update({
+    // Perform the lead update
+    const updatedLead = await prisma.lead.update({
       where: { id: Number(id) },
-      data: { title, company, email, phone, source, status },
+      data: updates,
     });
 
-    res.json({ message: 'Lead updated successfully', updated });
+    // --- 🧠 Lead History Tracking ---
+    const changedFields = Object.keys(updates);
+    const historyEntries = [];
+
+    for (const field of changedFields) {
+      const oldValue = existingLead[field];
+      const newValue = updatedLead[field];
+
+      if (oldValue !== newValue) {
+        historyEntries.push({
+          leadId: Number(id),
+          field,
+          fromValue: oldValue ? String(oldValue) : null,
+          toValue: newValue ? String(newValue) : null,
+          changedBy: user.id,
+        });
+      }
+    }
+
+    if (historyEntries.length > 0) {
+      await prisma.leadHistory.createMany({ data: historyEntries });
+    }
+
+    res.json({
+      message: 'Lead updated successfully',
+      updatedLead,
+      historyLogged: historyEntries.length,
+    });
   } catch (error) {
-    console.error(error);
+    console.error('Error updating lead:', error);
     res.status(500).json({ message: 'Error updating lead', error: error.message });
   }
 };
 
+
 // 🔴 Delete a lead
-exports.deleteLead = async (req, res) => {
+const deleteLead = async (req, res) => {
   try {
     const { id } = req.params;
     const user = req.user;
@@ -105,4 +134,53 @@ exports.deleteLead = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'Error deleting lead', error: error.message });
   }
+};
+
+
+// 🧾 Get lead history (for Admin, Manager, or Owner)
+const getLeadHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+
+    // Check if the lead exists
+    const lead = await prisma.lead.findUnique({ where: { id: Number(id) } });
+    if (!lead) return res.status(404).json({ message: "Lead not found" });
+
+    // Only Admin/Manager or the creator can view history
+    if (user.role === "SALES" && lead.createdById !== user.id) {
+      return res.status(403).json({ message: "Not authorized to view this lead's history" });
+    }
+
+    const history = await prisma.leadHistory.findMany({
+      where: { leadId: Number(id) },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        field: true,
+        fromValue: true,
+        toValue: true,
+        changedBy: true,
+        createdAt: true,
+      },
+    });
+
+    res.status(200).json({
+      leadId: id,
+      totalChanges: history.length,
+      history,
+    });
+  } catch (error) {
+    console.error("Error fetching lead history:", error);
+    res.status(500).json({ message: "Error fetching lead history", error: error.message });
+  }
+};
+
+
+module.exports = {
+  createLead,
+  getLeads,
+  updateLead,
+  deleteLead,
+  getLeadHistory
 };

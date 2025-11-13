@@ -6,6 +6,7 @@ const {
   getLeads,
   updateLead,
   deleteLead,
+  getLeadHistory,
 } = require('../controllers/leadController');
 
 const router = express.Router();
@@ -21,5 +22,9 @@ router.put('/:id', verifyToken, allowRoles('ADMIN', 'MANAGER', 'SALES'), updateL
 
 // Delete lead
 router.delete('/:id', verifyToken, allowRoles('ADMIN', 'MANAGER', 'SALES'), deleteLead);
+
+// 🧾 Get Lead History
+router.get('/:id/history',verifyToken,allowRoles('ADMIN', 'MANAGER', 'SALES'),getLeadHistory);
+
 
 module.exports = router;

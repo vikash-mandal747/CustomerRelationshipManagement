@@ -19,6 +19,9 @@ const createLead = async (req, res) => {
     });
 
     res.status(201).json({ message: 'Lead created successfully', lead });
+    // 🔔 Notify all connected clients
+    const io = req.app.get('io');
+    io.emit('leadCreated', lead);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error creating lead', error: error.message });
@@ -108,6 +111,10 @@ const updateLead = async (req, res) => {
       updatedLead,
       historyLogged: historyEntries.length,
     });
+
+    // 🔔 Notify all connected clients
+    const io = req.app.get('io');
+    io.emit('leadUpdated', updatedLead);
   } catch (error) {
     console.error('Error updating lead:', error);
     res.status(500).json({ message: 'Error updating lead', error: error.message });

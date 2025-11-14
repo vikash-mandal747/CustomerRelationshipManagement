@@ -33,6 +33,9 @@ const createActivity = async (req, res) => {
       message: 'Activity created successfully',
       activity
     });
+    // 🔔 Notify all clients about the new activity
+    const io = req.app.get('io');
+    io.emit('activityCreated', activity);
   } catch (error) {
     console.error('Error creating activity:', error);
     res.status(500).json({ message: 'Server error creating activity' });
